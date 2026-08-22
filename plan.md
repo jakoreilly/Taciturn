@@ -90,6 +90,54 @@ A `tests/Taciturn.Tests` project using Roslyn's
 next addition before Phase 2, so regressions in the four-branch signature
 dispatch get caught mechanically rather than by re-running the sample by hand.
 
+## Path to a publishable v1
+
+Scoped 2026-08-22, in response to "is there a realistic income/portfolio angle
+here" — the honest framing is that publishing this properly is a real, bounded
+project (roughly a weekend of focused work, not an afternoon), not a passive
+lever. What's actually left, grouped by who does it:
+
+**Code — I can do all of this:**
+- Phase 2: the other three `PrintMembers` signatures (`protected virtual`
+  non-sealed, `protected override` sealed-deriving-from-record with
+  `base.PrintMembers` chaining, `record struct`'s `private` form). This is
+  the biggest remaining chunk — each branch needs its own compile-and-run
+  verification the way Phase 1 got, not just "looks right."
+- `tests/Taciturn.Tests` using Roslyn's `CSharpSourceGeneratorVerifier` —
+  should land *before* Phase 2, not after, so each new signature branch is
+  caught by a real assertion instead of manual re-running. Already flagged
+  as the natural next step above.
+- Phase 3: `[Plain]` / `[property: Plain]`.
+- Phase 4: `TACIT004` (unmarked derived record) + `[DebuggerTypeProxy]`.
+- `README.md`: what it does, install snippet, a before/after example, the
+  four diagnostic IDs with one-line explanations, license badge. This is
+  what someone reads in the 15 seconds before deciding whether to add the
+  package — worth real effort, not boilerplate.
+- NuGet packaging metadata in `Taciturn.csproj`: `PackageId`, `Authors`,
+  `Description`, `PackageLicenseExpression` (MIT is the default choice for a
+  small dev-tool package unless you want otherwise), `RepositoryUrl`,
+  `PackageTags`. The `analyzers/dotnet/cs` packing item is already in place
+  from Phase 1.
+- A `LICENSE` file and pushing the existing local repo to a GitHub remote
+  you create.
+- A GitHub Actions workflow: build + test on every push, `dotnet pack` on a
+  version tag. Standard, and removes "did I forget a step" from every future
+  release.
+
+**Needs you specifically — I can't do these:**
+- Creating the GitHub repo itself (or telling me the URL of one you've
+  created) and a NuGet.org account if you want it listed there — both are
+  identity-bound signups I shouldn't act on with your credentials.
+- The actual `dotnet nuget push` with an API key, since that key has to come
+  from your NuGet.org account settings.
+- Deciding the license (MIT assumed above — say if you want something else)
+  and whether this ships under your name/handle or an org.
+
+**Suggested order:** tests → Phase 2 → Phase 3 → Phase 4 → README → packaging
+metadata → GitHub push → (your call) NuGet publish. Each phase is independently
+useful and already builds clean, so this can pause at any point without leaving
+something broken — say when to start and how far to go in one sitting.
+
 ## Not doing (per the original spec — repeated here so it isn't re-litigated)
 
 - No `[JsonConverter]`/serialization redaction — this only changes what's
