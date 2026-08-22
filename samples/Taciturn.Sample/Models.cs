@@ -8,5 +8,5 @@ namespace Taciturn.Sample;
 [Taciturn]
 public sealed partial record StripeOptions(
     string PublishableKey,
-    string AccountId,
+    [property: Plain] string AccountId,
     string WebhookSecret);
