@@ -21,42 +21,48 @@ catch it per call site.
 
 ## Status
 
-**Phase 1 — done.** Sealed record deriving directly from `object`, unconditional
-redaction of every printable member, `TACIT001` (not partial) and `TACIT099`
-(shape not yet supported) reporting loudly instead of silently doing nothing.
-Verified against the motivating `StripeOptions` example from the spec — output:
+**All four phases done.** The generator now handles every C# record shape with
+the correct `PrintMembers` signature, `[Plain]` opt-out, cross-hierarchy
+protection warnings, and a debugger view — the full design from
+`ClaudeScheduler/ideas/2026-08-06-taciturn.md` is implemented.
+
+**Phase 1.** Sealed record deriving directly from `object`, `TACIT001` (not
+partial), `TACIT002` (not a record), `TACIT003` (already declares its own
+`PrintMembers`/`ToString`, generator stands down rather than emit a
+duplicate-member compile error) — the latter two landed ahead of schedule
+since both are cheap and skipping them would have meant either a confusing
+silent no-op or a guaranteed compile break.
+
+**Phase 2.** All three distinct `PrintMembers` signatures: `private` (record
+struct, or sealed deriving from `object`), `protected virtual` (non-sealed
+deriving from `object`), `protected override` with `base.PrintMembers`
+chaining (anything deriving from another record, sealed or not). This is
+exhaustive over every record shape, so the old `TACIT099` "not supported yet"
+diagnostic became unreachable and was deleted rather than left as dead code.
+
+**Phase 3.** `[Plain]` (and `[property: Plain]` on positional-record
+parameters, since the attribute targets the synthesized property) opts one
+member back into the clear. Verified against the spec's own motivating
+example — output now matches exactly:
 
 ```
-StripeOptions { PublishableKey = «redacted», AccountId = «redacted», WebhookSecret = «redacted» }
+StripeOptions { PublishableKey = «redacted», AccountId = acct_1M2n3, WebhookSecret = «redacted» }
 ```
 
-(`AccountId` is redacted too in this phase — `[Plain]` doesn't exist yet, so
-redaction is unconditional. That's the documented limit of this milestone, not
-a bug.)
+**Phase 4.** `TACIT004` warns when an *unmarked* record derives from a
+`[Taciturn]`-marked one (protection is per-type, not per-hierarchy — a
+derived type's own new members print in the clear unless it's marked too).
+Runs as a second, unfiltered incremental pipeline since it has to see
+non-marked types, which `ForAttributeWithMetadataName` structurally can't.
+`[DebuggerTypeProxy]` is also generated, with a nested debug-view class
+showing the identical redacted/plain split as `ToString()` — including
+correct unbound-generic `typeof()` syntax for generic records.
 
-**Phase 2 — not started.** The other three `PrintMembers` signature branches
-(`protected virtual` non-sealed, `protected override` sealed-deriving-from-record
-with `base.PrintMembers` chaining, `record struct`'s `private` form), selected
-from `IsSealed` + whether the base type is itself a record. This is what
-retires `TACIT099` down to only genuinely out-of-scope shapes.
-
-**Phase 3 — not started.** `[Plain]` (including `[property: Plain]` on
-positional-record parameters) to opt individual members back into the clear,
-plus `TACIT002` (not a record — already implemented, see below) and `TACIT003`
-(already declares `PrintMembers`/`ToString` — already implemented, see below).
-
-**Phase 4 — not started.** `TACIT004`: warn when an *unmarked* record derives
-from a `[Taciturn]` one, since the base's protection doesn't propagate — a
-derived record still gets its own synthesized `PrintMembers` appending its own
-members in the clear. Plus `[DebuggerTypeProxy]` generation so a debugger hover
-shows the same redacted view as `ToString()`.
-
-Ahead of schedule: **`TACIT002`** (not a record) and **`TACIT003`** (type
-already declares its own `PrintMembers`/`ToString`, generator stands down
-rather than emit a duplicate-member compile error) were implemented in Phase 1
-rather than deferred to Phase 3 — both are cheap, and skipping them would have
-meant either a confusing silent no-op or a guaranteed compile break the first
-time someone applied `[Taciturn]` to a non-record or a hand-instrumented type.
+**Test harness upgrade, mid-Phase-2.** Started as source-text greps, then
+extended (`GeneratorTestHelper.ToStringOf`) to actually emit the compiled
+assembly and call the real `ToString()`/debug-view properties via reflection
+— genuine end-to-end proof of the comma-chaining and redaction arithmetic,
+not an inference from what the generated text looks like. 19/19 tests pass.
 
 ## Layout
 
@@ -95,20 +101,13 @@ dispatch get caught mechanically rather than by re-running the sample by hand.
 Scoped 2026-08-22, in response to "is there a realistic income/portfolio angle
 here" — the honest framing is that publishing this properly is a real, bounded
 project (roughly a weekend of focused work, not an afternoon), not a passive
-lever. What's actually left, grouped by who does it:
+lever.
+
+**Update, same day: all four code phases + the test project are done** (see
+Status above) — 19/19 tests, 0 build warnings, verified end-to-end including a
+generic record's DebuggerTypeProxy. What's left, grouped by who does it:
 
 **Code — I can do all of this:**
-- Phase 2: the other three `PrintMembers` signatures (`protected virtual`
-  non-sealed, `protected override` sealed-deriving-from-record with
-  `base.PrintMembers` chaining, `record struct`'s `private` form). This is
-  the biggest remaining chunk — each branch needs its own compile-and-run
-  verification the way Phase 1 got, not just "looks right."
-- `tests/Taciturn.Tests` using Roslyn's `CSharpSourceGeneratorVerifier` —
-  should land *before* Phase 2, not after, so each new signature branch is
-  caught by a real assertion instead of manual re-running. Already flagged
-  as the natural next step above.
-- Phase 3: `[Plain]` / `[property: Plain]`.
-- Phase 4: `TACIT004` (unmarked derived record) + `[DebuggerTypeProxy]`.
 - `README.md`: what it does, install snippet, a before/after example, the
   four diagnostic IDs with one-line explanations, license badge. This is
   what someone reads in the 15 seconds before deciding whether to add the

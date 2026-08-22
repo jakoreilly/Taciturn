@@ -11,6 +11,27 @@
     <NoWarn>$(NoWarn);RS2008;CS1591</NoWarn>
   </PropertyGroup>
 
+  <!-- NuGet packaging metadata. PackageId/PackageTags/RepositoryUrl are set;
+       Authors and PackageLicenseExpression are deliberately left for whoever
+       publishes this to fill in - the license especially is a real decision
+       (see plan.md "Path to a publishable v1"), not something to default to
+       silently. `dotnet pack` works without them; it just warns (NU5104-style)
+       and the NuGet.org listing page won't show a license until one is set. -->
+  <PropertyGroup>
+    <PackageId>Taciturn</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Roslyn source generator: mark a record [Taciturn] and every member is redacted in ToString() by default, until opted back into the clear per-member with [Plain].</Description>
+    <PackageTags>roslyn;source-generator;analyzer;record;logging;secrets;security</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- <Authors>your name or handle here</Authors> -->
+    <!-- <PackageLicenseExpression>MIT</PackageLicenseExpression> -->
+    <!-- <RepositoryUrl>https://github.com/&lt;you&gt;/Taciturn</RepositoryUrl> -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
