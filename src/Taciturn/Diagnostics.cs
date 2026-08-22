@@ -27,4 +27,12 @@ internal static class Diagnostics
         category: "Taciturn",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor UnmarkedDerivedFromTaciturn = new(
+        id: "TACIT004",
+        title: "Record derives from a [Taciturn] type without being marked itself",
+        messageFormat: "'{0}' derives from a [Taciturn]-marked record but is not itself marked — the base's members stay redacted, but '{0}'s own members will print in the clear. Add [Taciturn] here too if that is not intended.",
+        category: "Taciturn",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

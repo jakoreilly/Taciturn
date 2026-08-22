@@ -13,10 +13,11 @@ namespace Taciturn;
 /// record, so a property added later is redacted by default rather than by
 /// remembering to update a hand-maintained list.
 ///
-/// Phase 3 (see plan.md): [Plain] opts an individual member back into the clear
-/// - the default stays "everything redacted" so a member has to be deliberately
-/// excused, which is the thing that shows up in a diff. No DebuggerTypeProxy yet
-/// (that's Phase 4).
+/// Phase 4 (see plan.md, final phase): [Plain] opts an individual member back
+/// into the clear - default stays "everything redacted". TACIT004 warns when an
+/// unmarked record derives from a marked one, since protection is per-type, not
+/// per-hierarchy. A [DebuggerTypeProxy] is emitted too, so a debugger hover shows
+/// the same redacted view ToString() does.
 /// </summary>
 [Generator]
 public sealed class TaciturnGenerator : IIncrementalGenerator
@@ -102,7 +103,37 @@ public sealed class TaciturnGenerator : IIncrementalGenerator
                 });
 
         context.RegisterSourceOutput(candidates, static (spc, candidate) => Execute(spc, candidate));
+
+        // TACIT004: a separate, unfiltered pipeline over every type declaration
+        // with a base list - it has to look at types that are NOT [Taciturn]-
+        // marked (that's the whole point), so it can't reuse the
+        // ForAttributeWithMetadataName provider above, which only ever sees
+        // marked types. Each candidate still resolves everything it needs to a
+        // primitive DerivedCandidate at transform-time, for the same caching
+        // reason as the main pipeline.
+        IncrementalValuesProvider<DerivedCandidate> unmarkedDerived = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is TypeDeclarationSyntax { BaseList.Types.Count: > 0 },
+                transform: static (ctx, _) =>
+                {
+                    var decl = (TypeDeclarationSyntax)ctx.Node;
+                    if (ctx.SemanticModel.GetDeclaredSymbol(decl) is not INamedTypeSymbol symbol || !symbol.IsRecord)
+                        return default;
+
+                    bool selfMarked = symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == AttributeFullName);
+                    bool baseMarked = symbol.BaseType is { } bt && bt.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == AttributeFullName);
+
+                    return selfMarked || !baseMarked
+                        ? default
+                        : new DerivedCandidate(symbol.Name, decl.Identifier.GetLocation(), ShouldWarn: true);
+                })
+            .Where(static c => c.ShouldWarn);
+
+        context.RegisterSourceOutput(unmarkedDerived, static (spc, c) =>
+            spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.UnmarkedDerivedFromTaciturn, c.Location, c.Name)));
     }
+
+    private readonly record struct DerivedCandidate(string Name, Location Location, bool ShouldWarn);
 
     private static string Encode((string Name, bool IsPlain) m) => m.IsPlain ? m.Name + PlainMarker : m.Name;
 
@@ -254,12 +285,19 @@ public sealed class TaciturnGenerator : IIncrementalGenerator
         }
 
         string indent = hasNamespace ? "    " : "";
+        string typeArgs = candidate.TypeParametersDisplay.Length > 0 ? $"<{candidate.TypeParametersDisplay}>" : "";
+        // Unbound-generic typeof syntax for the attribute argument: arity commas,
+        // no type names - e.g. <T, U> becomes <,> in typeof(Wrapper<,>.DebugView).
+        string unboundTypeArgs = candidate.TypeParametersDisplay.Length > 0
+            ? "<" + new string(',', candidate.TypeParametersDisplay.Split(',').Length - 1) + ">"
+            : "";
+        string debugViewName = candidate.Name + "DebugView";
 
-        sb.Append(indent).Append("partial ").Append(keyword).Append(' ').Append(candidate.Name);
-        if (candidate.TypeParametersDisplay.Length > 0)
-        {
-            sb.Append('<').Append(candidate.TypeParametersDisplay).Append('>');
-        }
+        sb.Append(indent)
+          .Append("[System.Diagnostics.DebuggerTypeProxy(typeof(")
+          .Append(candidate.Name).Append(unboundTypeArgs).Append('.').Append(debugViewName)
+          .AppendLine("))]");
+        sb.Append(indent).Append("partial ").Append(keyword).Append(' ').Append(candidate.Name).Append(typeArgs);
         sb.AppendLine();
         sb.Append(indent).AppendLine("{");
         sb.Append(indent).Append("    ").Append(modifiers).AppendLine(" bool PrintMembers(System.Text.StringBuilder builder)");
@@ -301,6 +339,22 @@ public sealed class TaciturnGenerator : IIncrementalGenerator
 
         sb.Append(indent).AppendLine("        return printedAny;");
         sb.Append(indent).AppendLine("    }");
+
+        // Nested so it can see the containing type's own type parameters without
+        // restating them, and so a hover in the debugger shows exactly the same
+        // «redacted»/real-value split ToString() does - the whole point of a
+        // debugger proxy is that a breakpoint can't bypass what a log line can't.
+        sb.Append(indent).Append("    private sealed class ").Append(debugViewName).AppendLine();
+        sb.Append(indent).AppendLine("    {");
+        sb.Append(indent).Append("        private readonly ").Append(candidate.Name).Append(typeArgs).AppendLine(" _value;");
+        sb.Append(indent).Append("        public ").Append(debugViewName).Append('(').Append(candidate.Name).Append(typeArgs).AppendLine(" value) => _value = value;");
+        foreach (var (name, isPlain) in members)
+        {
+            string expr = isPlain ? $"_value.{name}" : "\"«redacted»\"";
+            sb.Append(indent).Append("        public object? ").Append(name).Append(" => ").Append(expr).AppendLine(";");
+        }
+        sb.Append(indent).AppendLine("    }");
+
         sb.Append(indent).AppendLine("}");
 
         if (hasNamespace)
