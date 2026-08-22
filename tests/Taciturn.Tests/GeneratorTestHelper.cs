@@ -14,7 +14,29 @@ namespace Taciturn.Tests;
 /// </summary>
 internal static class GeneratorTestHelper
 {
-    public sealed record Result(ImmutableArray<Diagnostic> GeneratorDiagnostics, string GeneratedSourceOrEmpty, bool CompilesClean, ImmutableArray<Diagnostic> CompileDiagnostics);
+    public sealed record Result(
+        ImmutableArray<Diagnostic> GeneratorDiagnostics,
+        string GeneratedSourceOrEmpty,
+        bool CompilesClean,
+        ImmutableArray<Diagnostic> CompileDiagnostics,
+        System.Reflection.Assembly? EmittedAssembly)
+    {
+        /// <summary>
+        /// Constructs an instance of a type from the emitted assembly with the
+        /// given constructor arguments and returns its real, live ToString() -
+        /// the actual proof that redaction works, not an inference from source
+        /// text. Fails loudly (not null) if the type or a matching constructor
+        /// isn't found, since a silent null return would make a broken test
+        /// look like a passing one.
+        /// </summary>
+        public string ToStringOf(string typeName, params object[] ctorArgs)
+        {
+            var assembly = EmittedAssembly ?? throw new InvalidOperationException("Compilation did not emit an assembly - check CompilesClean/CompileDiagnostics first.");
+            var type = assembly.GetType(typeName) ?? throw new InvalidOperationException($"Type '{typeName}' not found in emitted assembly.");
+            var instance = Activator.CreateInstance(type, ctorArgs) ?? throw new InvalidOperationException($"Activator.CreateInstance returned null for '{typeName}'.");
+            return instance.ToString() ?? throw new InvalidOperationException($"'{typeName}'.ToString() returned null.");
+        }
+    }
 
     public static Result Run(string source)
     {
@@ -32,19 +54,30 @@ internal static class GeneratorTestHelper
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new TaciturnGenerator());
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var generatorDiagnostics);
 
-        // The generated file is whichever new syntax tree the driver added beyond
-        // the attribute's own post-initialization output and the input tree -
-        // tests only ever feed one candidate type, so at most one "real" output
-        // file exists per run.
+        // A test source can declare more than one [Taciturn] candidate (e.g. a
+        // base + derived pair to exercise chaining), so this concatenates every
+        // generated file rather than assuming exactly one - callers grep the
+        // combined text rather than needing to know how many types were declared.
         var generatedTrees = outputCompilation.SyntaxTrees
             .Where(t => t != syntaxTree && !t.FilePath.EndsWith("TaciturnAttribute.g.cs", StringComparison.Ordinal))
             .ToList();
-        string generatedSource = generatedTrees.Count == 1 ? generatedTrees[0].ToString() : "";
+        string generatedSource = string.Join("\n// ---\n", generatedTrees.Select(t => t.ToString()));
 
         var compileDiagnostics = outputCompilation.GetDiagnostics();
         bool compilesClean = !compileDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);
 
-        return new Result(generatorDiagnostics, generatedSource, compilesClean, compileDiagnostics);
+        System.Reflection.Assembly? emittedAssembly = null;
+        if (compilesClean)
+        {
+            using var ms = new MemoryStream();
+            var emitResult = outputCompilation.Emit(ms);
+            if (emitResult.Success)
+            {
+                emittedAssembly = System.Reflection.Assembly.Load(ms.ToArray());
+            }
+        }
+
+        return new Result(generatorDiagnostics, generatedSource, compilesClean, compileDiagnostics, emittedAssembly);
     }
 
     private static readonly Lazy<MetadataReference[]> TrustedPlatformReferences = new(() =>

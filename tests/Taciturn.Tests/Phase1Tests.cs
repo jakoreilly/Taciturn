@@ -1,9 +1,10 @@
 namespace Taciturn.Tests;
 
 /// <summary>
-/// Locks in Phase 1 behavior (see plan.md) before Phase 2 starts touching the
-/// same Execute()/Render() paths, so a regression in the sealed-deriving-from-
-/// object branch shows up as a failing test instead of a manual re-run.
+/// Locks in the shape-agnostic behavior (see plan.md): the not-partial/not-a-
+/// record/already-declared guards, and redaction correctness for the simplest
+/// shape (sealed record deriving from object). The four PrintMembers signature
+/// branches themselves are Phase2Tests' job.
 /// </summary>
 public class Phase1Tests
 {
@@ -23,9 +24,12 @@ public class Phase1Tests
         Assert.Empty(result.GeneratorDiagnostics);
         Assert.True(result.CompilesClean, string.Join("\n", result.CompileDiagnostics));
         Assert.Contains("private bool PrintMembers(System.Text.StringBuilder builder)", result.GeneratedSourceOrEmpty);
-        Assert.Contains("\"PublishableKey = \").Append(\"«redacted»\")", result.GeneratedSourceOrEmpty);
-        Assert.Contains("\", AccountId = \").Append(\"«redacted»\")", result.GeneratedSourceOrEmpty);
-        Assert.Contains("\", WebhookSecret = \").Append(\"«redacted»\")", result.GeneratedSourceOrEmpty);
+
+        // The real proof: actually construct one and read its live ToString(),
+        // not just grep the generated source for the right-looking fragments.
+        Assert.Equal(
+            "StripeOptions { PublishableKey = «redacted», AccountId = «redacted», WebhookSecret = «redacted» }",
+            result.ToStringOf("StripeOptions", "pk_live_abc123", "acct_1M2n3", "whsec_9f2a"));
     }
 
     [Fact]
@@ -40,7 +44,9 @@ public class Phase1Tests
 
         Assert.Empty(result.GeneratorDiagnostics);
         Assert.True(result.CompilesClean, string.Join("\n", result.CompileDiagnostics));
-        Assert.Contains("return false;", result.GeneratedSourceOrEmpty);
+        Assert.Contains("bool printedAny = false;", result.GeneratedSourceOrEmpty);
+        Assert.Contains("return printedAny;", result.GeneratedSourceOrEmpty);
+        Assert.DoesNotContain("«redacted»", result.GeneratedSourceOrEmpty);
     }
 
     [Fact]
@@ -93,28 +99,5 @@ public class Phase1Tests
         Assert.Equal("TACIT003", diag.Id);
         Assert.Equal(Microsoft.CodeAnalysis.DiagnosticSeverity.Warning, diag.Severity);
         Assert.True(result.CompilesClean, string.Join("\n", result.CompileDiagnostics));
-    }
-
-    [Theory]
-    [InlineData("""
-        [Taciturn]
-        public partial record NonSealed(string Secret);
-        """)]
-    [InlineData("""
-        [Taciturn]
-        public partial record BaseRec(string A);
-        [Taciturn]
-        public sealed partial record DerivedRec(string A, string B) : BaseRec(A);
-        """)]
-    public void Out_of_phase1_scope_shapes_report_TACIT099(string sourceBody)
-    {
-        var result = GeneratorTestHelper.Run($"""
-            using Taciturn;
-
-            {sourceBody}
-            """);
-
-        Assert.All(result.GeneratorDiagnostics, d => Assert.Equal("TACIT099", d.Id));
-        Assert.NotEmpty(result.GeneratorDiagnostics);
     }
 }
