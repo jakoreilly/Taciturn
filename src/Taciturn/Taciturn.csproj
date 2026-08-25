@@ -21,6 +21,7 @@
     <Authors>John O'Reilly</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/jakoreilly/Taciturn</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/jakoreilly/Taciturn</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
