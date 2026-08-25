@@ -111,4 +111,4 @@ dotnet run --project samples/Taciturn.Sample
 
 ## License
 
-Not yet chosen.
+MIT — see [LICENSE](LICENSE).
