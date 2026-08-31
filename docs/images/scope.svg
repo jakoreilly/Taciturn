@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 236" width="900" height="236" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif">
+  <rect width="900" height="236" rx="14" fill="#0e1116"/>
+
+  <rect x="24" y="24" width="416" height="164" rx="12" fill="#161b23" stroke="#52d18b" stroke-opacity=".4"/>
+  <text x="42" y="50" fill="#52d18b" font-size="12.5" font-weight="700">CLOSED — the printed path</text>
+  <text x="42" y="76" fill="#93a1b3" font-size="10.5">record ToString()</text>
+  <text x="42" y="95" fill="#93a1b3" font-size="10.5">string interpolation  $"{options}"</text>
+  <text x="42" y="114" fill="#93a1b3" font-size="10.5">structured logging  _logger.LogInformation("{Options}", …)</text>
+  <text x="42" y="133" fill="#93a1b3" font-size="10.5">debugger hover / watch window</text>
+  <text x="42" y="152" fill="#93a1b3" font-size="10.5">[DebuggerTypeProxy] generated to match</text>
+  <text x="42" y="174" fill="#5b6878" font-size="9.5">every member redacted unless marked [Plain]</text>
+
+  <rect x="460" y="24" width="416" height="164" rx="12" fill="#161b23" stroke="#f0b429" stroke-opacity=".4"/>
+  <text x="478" y="50" fill="#f0b429" font-size="12.5" font-weight="700">UNTOUCHED — the value itself</text>
+  <text x="478" y="76" fill="#93a1b3" font-size="10.5">still a live string on the managed heap</text>
+  <text x="478" y="95" fill="#93a1b3" font-size="10.5">JsonSerializer.Serialize(options) — serialized in full</text>
+  <text x="478" y="114" fill="#93a1b3" font-size="10.5">any explicit read:  options.ClientSecret</text>
+  <text x="478" y="133" fill="#93a1b3" font-size="10.5">no zeroing, no SecureString</text>
+  <text x="478" y="174" fill="#5b6878" font-size="9.5">no wrapper type — the appeal is zero call-site changes</text>
+
+  <text x="24" y="216" fill="#93a1b3" font-size="10.5">Taciturn closes the path a secret leaks through by accident. It does not make the value secret.</text>
+</svg>

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5eb3ff"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#52d18b"/></marker>
+  </defs>
+
+  <rect width="900" height="380" rx="14" fill="#0e1116"/>
+
+  <!-- source -->
+  <rect x="24" y="60" width="212" height="150" rx="12" fill="#161b23" stroke="#2a323f"/>
+  <text x="40" y="84" fill="#e6edf3" font-size="12.5" font-weight="650">your record</text>
+  <text x="40" y="108" fill="#5eb3ff" font-size="10.5" font-family="ui-monospace, monospace">[Taciturn]</text>
+  <text x="40" y="124" fill="#93a1b3" font-size="10.5" font-family="ui-monospace, monospace">partial record</text>
+  <text x="40" y="140" fill="#93a1b3" font-size="10.5" font-family="ui-monospace, monospace">ApiCredentials(</text>
+  <text x="52" y="156" fill="#52d18b" font-size="10" font-family="ui-monospace, monospace">[property: Plain]</text>
+  <text x="52" y="170" fill="#93a1b3" font-size="10" font-family="ui-monospace, monospace">string ClientId,</text>
+  <text x="52" y="186" fill="#93a1b3" font-size="10" font-family="ui-monospace, monospace">string ClientSecret)</text>
+
+  <!-- compile -->
+  <rect x="288" y="36" width="330" height="266" rx="14" fill="#12171f" stroke="#2a323f"/>
+  <text x="304" y="58" fill="#93a1b3" font-size="11.5" font-weight="600" letter-spacing=".08em">ROSLYN COMPILE</text>
+
+  <rect x="302" y="72" width="302" height="66" rx="10" fill="#161b23" stroke="#2a323f"/>
+  <text x="316" y="93" fill="#93a1b3" font-size="12" font-weight="650">compiler synthesizes PrintMembers</text>
+  <text x="316" y="109" fill="#5b6878" font-size="10">prints every public property —</text>
+  <text x="316" y="123" fill="#5b6878" font-size="10">this is the leak, and nobody wrote it</text>
+
+  <rect x="302" y="150" width="302" height="86" rx="10" fill="#161b23" stroke="#52d18b" stroke-opacity=".45"/>
+  <text x="316" y="171" fill="#e6edf3" font-size="12" font-weight="650">Taciturn incremental generator</text>
+  <text x="316" y="188" fill="#93a1b3" font-size="10">emits a partial PrintMembers into the type</text>
+  <text x="316" y="202" fill="#93a1b3" font-size="10">redacts every member except [Plain]</text>
+  <text x="316" y="216" fill="#93a1b3" font-size="10">+ a matching [DebuggerTypeProxy]</text>
+  <text x="316" y="230" fill="#52d18b" font-size="9.5">the generated partial is the one ToString() calls</text>
+
+  <text x="304" y="262" fill="#5b6878" font-size="9.5">regenerated from the type every build — a property</text>
+  <text x="304" y="275" fill="#5b6878" font-size="9.5">added next month is redacted by nobody</text>
+  <text x="304" y="288" fill="#5b6878" font-size="9.5">chains base.PrintMembers, so a [Taciturn] hierarchy composes</text>
+
+  <!-- runtime -->
+  <rect x="670" y="60" width="206" height="150" rx="12" fill="#161b23" stroke="#2a323f"/>
+  <text x="686" y="84" fill="#e6edf3" font-size="12.5" font-weight="650">at runtime</text>
+  <text x="686" y="106" fill="#93a1b3" font-size="10">ToString() · $"{x}" · ILogger</text>
+  <text x="686" y="122" fill="#93a1b3" font-size="10">debugger hover</text>
+  <line x1="686" y1="132" x2="860" y2="132" stroke="#2a323f"/>
+  <text x="686" y="152" fill="#93a1b3" font-size="10" font-family="ui-monospace, monospace">ClientId = abc123</text>
+  <text x="686" y="168" fill="#52d18b" font-size="10" font-family="ui-monospace, monospace">ClientSecret = «redacted»</text>
+  <text x="686" y="190" fill="#5b6878" font-size="9.5">a breakpoint can't bypass</text>
+  <text x="686" y="202" fill="#5b6878" font-size="9.5">what a log line can't</text>
+
+  <!-- arrows -->
+  <path d="M236 135 L284 135" stroke="#5eb3ff" stroke-width="2" marker-end="url(#b)"/>
+  <path d="M618 135 L666 135" stroke="#52d18b" stroke-width="2" marker-end="url(#g)"/>
+
+  <text x="24" y="344" fill="#93a1b3" font-size="10.5">Type-level, not call-site: one attribute, and the redaction is regenerated from the type instead of maintained beside it.</text>
+</svg>
